@@ -6,12 +6,12 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
-	"github.com/pocketbase/pocketbase/models"
 )
 
 func startOfNextHour(t time.Time) time.Time {
@@ -114,8 +114,8 @@ type OpenMeteoResponse struct {
 		WeatherCode      []int     `json:"weather_code"`
 		Temperature2mMax []float64 `json:"temperature_2m_max"`
 		Temperature2mMin []float64 `json:"temperature_2m_min"`
-		Sunrise          []int     `json:"sunrise"`
-		Sunset           []int     `json:"sunset"`
+		Sunrise          []int64   `json:"sunrise"`
+		Sunset           []int64   `json:"sunset"`
 		DaylightDuration []float64 `json:"daylight_duration"`
 		UvIndexMax       []float64 `json:"uv_index_max"`
 		PrecipitationSum []float64 `json:"precipitation_sum"`
@@ -280,7 +280,7 @@ func (r *OpenMeteoResponse) GetDailySunrise() (forecast []TimeseriesPoint) {
 	for index, value := range r.Daily.Sunrise {
 		point := TimeseriesPoint{
 			Unixtime: r.Daily.Time[index],
-			Value:    fmt.Sprintf("%d%s", value, UnitsToString(r.DailyUnits.Sunrise, float64(value))),
+			Value:    hourlyUnixTimeToString(value + int64(r.UtcOffsetSeconds)),
 		}
 		forecast = append(forecast, point)
 	}
@@ -291,18 +291,29 @@ func (r *OpenMeteoResponse) GetDailySunset() (forecast []TimeseriesPoint) {
 	for index, value := range r.Daily.Sunset {
 		point := TimeseriesPoint{
 			Unixtime: r.Daily.Time[index],
-			Value:    fmt.Sprintf("%d%s", value, UnitsToString(r.DailyUnits.Sunset, float64(value))),
+			Value:    hourlyUnixTimeToString(value + int64(r.UtcOffsetSeconds)),
 		}
 		forecast = append(forecast, point)
 	}
 	return forecast
 }
 
+func shortDur(d time.Duration) string {
+	s := d.String()
+	if strings.HasSuffix(s, "m0s") {
+		s = s[:len(s)-2]
+	}
+	if strings.HasSuffix(s, "h0m") {
+		s = s[:len(s)-2]
+	}
+	return s
+}
+
 func (r *OpenMeteoResponse) GetDailyDaylightDuration() (forecast []TimeseriesPoint) {
 	for index, value := range r.Daily.DaylightDuration {
 		point := TimeseriesPoint{
 			Unixtime: r.Daily.Time[index],
-			Value:    fmt.Sprintf("%g%s", value, UnitsToString(r.DailyUnits.DaylightDuration, value)),
+			Value:    shortDur(time.Duration(value) * time.Second),
 		}
 		forecast = append(forecast, point)
 	}
@@ -375,12 +386,14 @@ type WeatherStatus struct {
 	Daily   []DayStatus   `json:"daily"`
 }
 
-func hourlyUnixTimeToString(unixtime int64, timezone string) string {
+func hourlyUnixTimeToString(unixtime int64) string {
 	t := time.Unix(unixtime, 0)
-	return t.Format("3:04")
+	timeStr := strings.ToLower(t.Format("3:04PM"))
+	digitsStr := strings.TrimSuffix(timeStr[:len(timeStr)-2], ":00")
+	return digitsStr + timeStr[len(timeStr)-2:]
 }
 
-func dailyUnixTimeToString(unixtime int64, timezone string) string {
+func dailyUnixTimeToString(unixtime int64) string {
 	t := time.Unix(unixtime, 0)
 	return t.Format("Mon")
 }
@@ -410,7 +423,7 @@ func (r *OpenMeteoResponse) TranslateToWeatherStatus() WeatherStatus {
 	for i := range hourlyTemperature {
 		status.Hourly = append(status.Hourly, HourStatus{
 			Unixtime:                 hourlyTemperature[i].Unixtime,
-			TimeStr:                  hourlyUnixTimeToString(hourlyTemperature[i].Unixtime+int64(r.UtcOffsetSeconds), r.Timezone),
+			TimeStr:                  hourlyUnixTimeToString(hourlyTemperature[i].Unixtime + int64(r.UtcOffsetSeconds)),
 			Temperature:              hourlyTemperature[i].Value,
 			PrecipitationProbability: hourlyPrecipitationProbability[i].Value,
 			Precipitation:            hourlyPrecipitation[i].Value,
@@ -430,7 +443,7 @@ func (r *OpenMeteoResponse) TranslateToWeatherStatus() WeatherStatus {
 	for i := range dailyWeatherCode {
 		status.Daily = append(status.Daily, DayStatus{
 			Unixtime:         dailyWeatherCode[i].Unixtime,
-			TimeStr:          dailyUnixTimeToString(dailyWeatherCode[i].Unixtime+int64(r.UtcOffsetSeconds), r.Timezone),
+			TimeStr:          dailyUnixTimeToString(dailyWeatherCode[i].Unixtime + int64(r.UtcOffsetSeconds)),
 			WeatherCode:      dailyWeatherCode[i].Value,
 			TemperatureMax:   dailyTemperatureMax[i].Value,
 			TemperatureMin:   dailyTemperatureMin[i].Value,
@@ -448,11 +461,11 @@ func (r *OpenMeteoResponse) TranslateToWeatherStatus() WeatherStatus {
 func CurrentWeatherHandler(app *pocketbase.PocketBase) func(c echo.Context) error {
 	return func(c echo.Context) error {
 
-		record, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+		// record, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
 
-		if record == nil {
-			return apis.NewForbiddenError("You must be logged in", nil)
-		}
+		// if record == nil {
+		// 	return apis.NewForbiddenError("You must be logged in", nil)
+		// }
 		latitudeRaw := c.QueryParam("latitude")
 
 		if latitudeRaw == "" {
