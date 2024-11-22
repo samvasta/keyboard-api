@@ -11,6 +11,7 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
 	keyboard_apis "keyboard-api/apis"
+	"keyboard-api/apis/weather"
 
 	_ "github.com/joho/godotenv/autoload"
 )
@@ -35,6 +36,8 @@ func main() {
 		e.Router.GET("/spotify/callback", keyboard_apis.SpotifyCallbackHandler(app))
 		e.Router.GET("/spotify/currently-playing", keyboard_apis.SpotifyCurrentlyPlayingHandler(app))
 		e.Router.GET("/spotify/currently-playing-art", keyboard_apis.SpotifyCurrentlyPlayingArtHandler(app))
+
+		e.Router.GET("/weather/current", weather.CurrentWeatherHandler(app))
 
 		return nil
 	})
