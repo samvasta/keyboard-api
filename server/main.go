@@ -38,6 +38,8 @@ func main() {
 		e.Router.GET("/spotify/currently-playing-art", keyboard_apis.SpotifyCurrentlyPlayingArtHandler(app))
 
 		e.Router.GET("/weather/current", weather.CurrentWeatherHandler(app))
+		e.Router.GET("/weather/hourly", weather.HourlyWeatherHandler(app))
+		e.Router.GET("/weather/daily", weather.DailyWeatherHandler(app))
 
 		return nil
 	})

@@ -2,14 +2,17 @@
   "cSpell.words": [
     "Automigrate",
     "Catmull",
+    "generationtime",
     "godotenv",
     "imgs",
     "joho",
     "labstack",
+    "Meteo",
     "migratecmd",
     "nfnt",
     "pocketbase",
     "Resizer",
-    "smartcrop"
+    "smartcrop",
+    "Unixtime"
   ]
 }
