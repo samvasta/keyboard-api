@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase/apis"
+	"github.com/pocketbase/pocketbase/models"
 )
 
 func startOfNextHour(t time.Time) time.Time {
@@ -48,11 +49,11 @@ type timeseriesPoint struct {
 }
 
 func parseLatLongTz(c echo.Context) (latitude, longitude float64, timezone string, err error) {
-	// record, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+	record, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
 
-	// if record == nil {
-	// 	return apis.NewForbiddenError("You must be logged in", nil)
-	// }
+	if record == nil {
+		return 0, 0, "", apis.NewForbiddenError("You must be logged in", nil)
+	}
 	latitudeRaw := c.QueryParam("latitude")
 
 	if latitudeRaw == "" {
