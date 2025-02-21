@@ -10,4 +10,4 @@ FROM alpine:latest
 COPY --from=base /app/keyboard-api /app
 
 # start PocketBase
-CMD ["/app", "serve", "--http=0.0.0.0:8092", "--migrate"]
+CMD ["/app", "serve", "--http=0.0.0.0:8092"]
